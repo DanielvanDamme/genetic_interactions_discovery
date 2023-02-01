@@ -245,7 +245,7 @@ signME = dplyr::filter(signME, p.value < 0.1)
 
 # cb(signME)
 
-signME = head(signME, -1)
+signME = head(signME,-1)
 
 # Bipartition for all genes in result of DISCOVER output (signME)
 # __________________________________________________________________
@@ -307,10 +307,10 @@ for(i in 1:nrow(signME)){
   filename <- paste("C:\\Users\\Daan\\Desktop\\pantopaad\\", "row", i,"-", threshold, ".csv", sep="")
 
   # chi square test based on clinical data for current pair
-  print(paste("Row",i))
+  print(paste(gene1," ",gene2, " Row",i))
   testdata = table(res$origin,
                    res$Tumor.Stage)
-  print(chisq.test(testdata, simulate.p.value = TRUE))
+  print(chisq.test(testdata, simulate.p.value = FALSE))
 
   #write.csv(res, filename)
 }
