@@ -93,7 +93,7 @@ listofsums <- data.frame(rowSums(emptymatrix))
 percentages <- data.frame(apply(listofsums, 1, percentage))
 
 events <- discover.matrix(emptymatrix)
-threshold <- 55
+threshold <- 14
 mode <- "less"
 subset <- rowSums(emptymatrix) > threshold
 
@@ -109,17 +109,16 @@ signME <- as.data.frame(result.mutex, q.threshold = 0.20)
 
 signME = dplyr::filter(signME, p.value < 0.1)
 
-genes <- c("KRAS", "CDKN2A", "ARID1A")
-groupwise.discover.test(events[genes,], method = c("exclusivity"))
-plot(events[genes,])
+# genes <- c("KRAS", "CDKN2A", "ARID1A")
+# groupwise.discover.test(events[genes,], method = c("exclusivity"))
+# plot(events[genes,])
 #write.csv(signME, "C:\\Users\\Daan\\Desktop\\forstringdb\\mskmet.csv")
 #cb(signME)
-# 
-# # count how many times gene is in mutual exclusive
-# # allgenes <- data.frame(genes = c(signME$gene1, signME$gene2))
-# # freqtable <- table(allgenes$genes)
-# # cb(freqtable)
 
+# count how many times gene is in mutual exclusive
+# allgenes <- data.frame(genes = c(signME$gene1, signME$gene2))
+# freqtable <- table(allgenes$genes)
+# cb(freqtable)
 
 # Methods for copying the percentages to clipboard (WINDOWS specific probably)
 # #____________________________________________________________________________________________________________________________________
@@ -246,64 +245,73 @@ plot(events[genes,])
 
 # cb(signME)
 
+signME = head(signME, -1)
+
 # Bipartition for all genes in result of DISCOVER output (signME)
 # __________________________________________________________________
+for(i in 1:nrow(signME)){
+  gene1 <- signME[i,1]
+  gene2 <- signME[i,2]
+  gene1vals <- c()
+  gene2vals <- c()
+  for(j in 1:nrow(pancreasdata4)){
+    if(pancreasdata4[j,1] == gene1){
+      gene1vals = append(gene1vals, pancreasdata4[j,2])
+    }
+    else if(pancreasdata4[j,1] == gene2){
+      gene2vals = append(gene2vals, pancreasdata4[j,2])
+    }
+  }
+  res <- data.frame(origin = c(rep(gene1, length(gene1vals)),
+                               rep(gene2, length(gene2vals))),
+                    Sample.ID = c(gene1vals, gene2vals))
 
-#
+  res = inner_join(res, clinicaldata,
+                   by = "Sample.ID")
 
-# for(i in 1:nrow(signME)){
-#   gene1 <- signME[i,1]
-#   gene2 <- signME[i,2]
-#   gene1vals <- c()
-#   gene2vals <- c()
-#   for(j in 1:nrow(pancreasdata4)){
-#     if(pancreasdata4[j,1] == gene1){
-#       gene1vals = append(gene1vals, pancreasdata4[j,2])
-#     }
-#     else if(pancreasdata4[j,1] == gene2){
-#       gene2vals = append(gene2vals, pancreasdata4[j,2])
-#     }
-#   }
-#   res <- data.frame(origin = c(rep(gene1, length(gene1vals)),
-#                                rep(gene2, length(gene2vals))),
-#                     Sample.ID = c(gene1vals, gene2vals))
-# 
-#   res = inner_join(res, clinicaldata,
-#                    by = "Sample.ID")
-#   
-#   # # msk_met2021 categories
-#   # res = dplyr::select(res, 
-#   #                     origin, 
-#   #                     Sample.ID, 
-#   #                     Fraction.Genome.Altered, # Continous, maybe turn into buckets
-#   #                     Sample.Type, 
-#   #                     Race.Category,
-#   #                     Mutation.Count) # Continous, maybe turn into buckets
-#   
-#   # china categories
-#   res = dplyr::select(res,
-#                       origin,
-#                       Sample.ID,
-#                       Tumor.Stage,
-#                       Sample.Type,
-#                       Sex,
-#                       Tumor.Purity,
-#                       Treatment)
-#   
-#   res = res[!duplicated(res),]
-#   
-#   # Those individuals that have mutations in both genes
-#   resduplicates <- res %>% group_by(Sample.ID) %>% filter(n()>1)
-#   resfortest <- anti_join(res, resduplicates)
-#   
-#   filename <- paste("C:\\Users\\Daan\\Desktop\\pantopaad\\", "row", i,"-", threshold, ".csv", sep="")
-#   
-#   # chi square test based on clinical data for current pair
-#   print(paste("Row",i))
-#   testdata = table(resfortest$origin,
-#                    resfortest$Tumor.Stage)
-#   print(chisq.test(testdata, simulate.p.value = TRUE))
-#   
-#   #write.csv(res, filename)
-# }
+  # MSKMET categories
+  # res = dplyr::select(res,
+  #                     origin,
+  #                     Sample.ID,
+  #                     Fraction.Genome.Altered, # Continous, maybe turn into buckets
+  #                     Sample.Type,
+  #                     Race.Category,
+  #                     Mutation.Count) # Continous, maybe turn into buckets
+
+  # CHINA categories
+  res = dplyr::select(res,
+                      origin,
+                      Sample.ID,
+                      Tumor.Stage,
+                      Sample.Type,
+                      Sex,
+                      Tumor.Purity,
+                      Treatment)
+
+  res = res[!duplicated(res),]
+
+  # Those individuals that have mutations in both genes
+  resduplicates <- res %>% group_by(Sample.ID) %>% filter(n()>1)
+  resfortest <- anti_join(res, resduplicates)
+  
+  if(nrow(resduplicates)>2){
+    # Ones that have mutations in both are new category
+    resduplicates2 = head(resduplicates, - (nrow(resduplicates)/2))
+    for(x in 1:nrow(resduplicates2)){
+      resduplicates2[x,1] = "BOTH"
+    }
+    res = rbind(res,resduplicates2)
+  }
+  
+
+  filename <- paste("C:\\Users\\Daan\\Desktop\\pantopaad\\", "row", i,"-", threshold, ".csv", sep="")
+
+  # chi square test based on clinical data for current pair
+  print(paste("Row",i))
+  testdata = table(res$origin,
+                   res$Tumor.Stage)
+  print(chisq.test(testdata, simulate.p.value = TRUE))
+
+  #write.csv(res, filename)
+}
 
